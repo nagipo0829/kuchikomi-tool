@@ -51,11 +51,15 @@ textarea{width:100%;font:inherit;font-size:15px;padding:10px;border:2px solid #d
 <script>
 // ---- 店舗設定（URLパラメータ: name, pid, items）----
 const P = new URLSearchParams(location.search);
-const SHOP = {
+// QRは ?shop=店舗ID だけ。中身は shops.json に書く（変更してもQRはそのまま使える）。
+// shop がなければ従来どおり URL パラメータから読む。
+const csv = v => (Array.isArray(v) ? v : String(v||'').split(',')).map(s=>String(s).trim()).filter(Boolean);
+let SHOP = {
   name: P.get('name') || 'サンプル食堂',
   pid: P.get('pid') || '',
-  items: (P.get('items') || '定食,ラーメン,ドリンク').split(',').map(s=>s.trim()).filter(Boolean)
+  items: csv(P.get('items') || '定食,ラーメン,ドリンク')
 };
+let PTS = csv(P.get('pts'));
 
 // ---- 多言語テキスト ----
 const T = {
@@ -104,10 +108,10 @@ const X = {
  zh:{dart:'飞镖玩得很开心',beginner:'飞镖新手也有人耐心指导',solo:'一个人来也很自在',group:'多人聚会也很合适'},
  ko:{dart:'다트를 즐길 수 있었어요',beginner:'다트 초보도 친절하게 알려줬어요',solo:'혼자서도 편하게 갈 수 있었어요',group:'단체로도 즐겁게 이용했어요'}
 };
-const EXTRA = (P.get('pts')||'').split(',').filter(k=>X.ja[k]);
+const EXTRA = () => PTS.filter(k=>X.ja[k]);
 function allPoints(t){
   const o = {...t.points};
-  EXTRA.forEach(k=>{ o[k] = X[lang][k]; });
+  EXTRA().forEach(k=>{ o[k] = X[lang][k]; });
   return o;
 }
 
@@ -174,7 +178,17 @@ $('post').onclick = async () => {
   const url = SHOP.pid ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(SHOP.pid)}` : 'https://www.google.com/maps';
   window.open(url, '_blank');
 };
-render();
+(async () => {
+  const id = P.get('shop');
+  if(id){
+    try {
+      const r = await fetch('shops.json?t=' + Date.now(), {cache:'no-store'});
+      const d = (await r.json())[id];
+      if(d){ SHOP = {name:d.name, pid:d.pid||'', items:csv(d.items)}; PTS = csv(d.pts); }
+    } catch(e){}
+  }
+  render();
+})();
 </script>
 </body>
 </html>

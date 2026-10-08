@@ -24,6 +24,7 @@ button{width:100%;margin-top:14px;padding:14px;border:0;border-radius:12px;backg
 <header>店舗ごとのQRコード発行</header>
 <main>
 <div class="card">
+  <label>店舗ID（半角英数字。QRに入る。あとから変えない）</label><input id="sid" value="sample">
   <label>店舗名</label><input id="name" value="サンプル食堂">
   <label>GoogleのPlace ID（口コミ画面に直接飛ぶために使用）</label><input id="pid" placeholder="例：ChIJxxxxxxxx">
   <small>Google「Place ID Finder」で店名を検索すると取得できます。空欄だとGoogleマップのトップに飛びます。</small>
@@ -36,19 +37,21 @@ button{width:100%;margin-top:14px;padding:14px;border:0;border-radius:12px;backg
   <div id="qr"></div>
   <p id="link"></p>
   <a id="open" target="_blank">▶ お客さん画面を開いて確認</a>
+  <p style="font-weight:700;font-size:13px;margin:12px 0 4px">shops.json に追記する内容</p>
+  <textarea id="json" readonly style="width:100%;height:150px;font:12px monospace;box-sizing:border-box"></textarea>
+  <small>QRは店舗IDだけで動きます。メニュー・店名・Place IDを変えたいときは、GitHubの shops.json を編集するだけで、印刷したQRはそのまま使えます（反映まで1〜2分）。</small>
   <small>QRを右クリック→画像を保存して、POPやテーブルに貼ってください。公開するときは、index.htmlを置いたWebのURLに自動で切り替わります。</small>
 </div>
 </main>
 <script>
 document.getElementById('make').onclick = () => {
-  const q = new URLSearchParams({
-    name: document.getElementById('name').value,
-    pid: document.getElementById('pid').value,
-    items: document.getElementById('items').value,
-    pts: document.getElementById('pts').value
-  });
+  const $ = id => document.getElementById(id).value.trim();
+  const csv = v => v.split(',').map(x=>x.trim()).filter(Boolean);
+  const id = $('sid').replace(/[^A-Za-z0-9_-]/g,'') || 'sample';
   const base = location.href.replace(/admin\.html.*$/, 'index.html');
-  const url = base + '?' + q.toString();
+  const url = base + '?shop=' + encodeURIComponent(id);
+  const entry = {name:$('name'), pid:$('pid'), items:csv($('items')), pts:csv($('pts'))};
+  document.getElementById('json').value = '  ' + JSON.stringify(id) + ': ' + JSON.stringify(entry, null, 2).replace(/\n/g,'\n  ');
   document.getElementById('qr').innerHTML = '';
   new QRCode(document.getElementById('qr'), {text:url, width:220, height:220});
   document.getElementById('link').textContent = url;
