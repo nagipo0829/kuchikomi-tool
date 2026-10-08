@@ -1,8 +1,1 @@
-{
-  "haiyorokonde": {
-    "name": "はい！喜んで！",
-    "pid": "",
-    "items": ["焼き鳥", "ダーツ", "ドリンク"],
-    "pts": ["dart", "beginner", "solo", "group"]
-  }
-}
+{"haiyorokonde": {"name": "はい！喜んで！", "pid": "ChIJt7ln0JefImARGBPpC3SII4I", "items": ["ダーツ", "お酒・ドリンク", "麻辣湯", "貸切・宴会", "おつまみ・ごはん"], "pts": ["dart", "beginner", "solo", "group"]}}
