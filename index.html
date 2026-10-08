@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>口コミアンケート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--y:#FFD400;--k:#111;--g:#f2f2f2;--g2:#888}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Noto Sans JP',sans-serif;background:var(--g);color:var(--k)}
+header{background:var(--k);color:var(--y);padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+header h1{font-size:16px;margin:0;font-weight:900}
+select{font:inherit;padding:4px 6px;border-radius:6px;border:0}
+main{max-width:520px;margin:0 auto;padding:16px}
+.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px #0002}
+.card h2{font-size:15px;margin:0 0 10px;border-left:6px solid var(--y);padding-left:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:2px solid #ddd;background:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
+.chip.on{background:var(--y);border-color:var(--k);font-weight:700}
+textarea{width:100%;font:inherit;font-size:15px;padding:10px;border:2px solid #ddd;border-radius:10px;resize:vertical}
+.btn{display:block;width:100%;border:0;border-radius:12px;padding:14px;font:inherit;font-weight:900;font-size:16px;cursor:pointer;margin-top:10px}
+.pri{background:var(--y);color:var(--k)}
+.sec{background:var(--k);color:#fff}
+.ghost{background:#fff;border:2px solid var(--k)}
+.note{font-size:12px;color:var(--g2);margin-top:8px;line-height:1.6}
+#result{display:none}
+</style>
+</head>
+<body>
+<header><h1 id="shopname"></h1>
+<select id="lang"><option value="ja">日本語</option><option value="en">English</option><option value="zh">中文</option><option value="ko">한국어</option></select></header>
+<main>
+<p id="lead" style="font-size:14px;line-height:1.7"></p>
+<div class="card"><h2 id="q1t"></h2><div class="chips" id="q1"></div></div>
+<div class="card"><h2 id="q2t"></h2><div class="chips" id="q2"></div></div>
+<div class="card"><h2 id="q3t"></h2><div class="chips" id="q3"></div></div>
+<div class="card"><h2 id="q4t"></h2><textarea id="free" rows="2"></textarea></div>
+<button class="btn pri" id="gen"></button>
+
+<div class="card" id="result">
+  <h2 id="rt"></h2>
+  <textarea id="out" rows="8"></textarea>
+  <button class="btn ghost" id="regen"></button>
+  <button class="btn sec" id="post"></button>
+  <p class="note" id="rnote"></p>
+</div>
+</main>
+
+<script>
+// ---- 店舗設定（URLパラメータ: name, pid, items）----
+const P = new URLSearchParams(location.search);
+const SHOP = {
+  name: P.get('name') || 'サンプル食堂',
+  pid: P.get('pid') || '',
+  items: (P.get('items') || '定食,ラーメン,ドリンク').split(',').map(s=>s.trim()).filter(Boolean)
+};
+
+// ---- 多言語テキスト ----
+const T = {
+ja:{lead:'いくつか選ぶだけで、口コミの文章案ができます。',q1:'何を利用しましたか？（複数OK）',q2:'よかった点は？（複数OK）',q3:'どなたと来店しましたか？',q4:'ひとこと（任意）',
+ free:'例：また来ます！',gen:'口コミ案を作る',rt:'口コミ案（自由に直してください）',regen:'別の文章にする',post:'コピーしてGoogleの口コミ画面へ',
+ rnote:'※ 実際の体験に合わせて内容を確認・修正してから、ご自身で投稿してください。',copied:'コピーしました。次の画面で貼り付けて投稿してください。',pick:'よかった点を1つ以上選んでください',
+ points:{taste:'味がとても美味しかった',staff:'スタッフの対応が親切だった',atmos:'お店の雰囲気が居心地よかった',price:'価格がお手頃だった',clean:'店内が清潔で気持ちよかった',speed:'提供が早かった'},
+ who:{solo:'ひとりで',friends:'友人と',family:'家族と',date:'デートで',travel:'旅行で'},
+ whoS:{solo:'ひとりで',friends:'友人と',family:'家族と',date:'デートで',travel:'旅行の途中で'},
+ intro:(s,w,i)=>`${w}${s}に行ってきました。${i?i+'をいただきました。':''}`,
+ join:(a)=>a.join('。')+'。',
+ close:['また利用したいです。','おすすめです！','ぜひ行ってみてください。']},
+en:{lead:'Just tap a few options and we will draft a review for you.',q1:'What did you have? (multiple OK)',q2:'What did you like? (multiple OK)',q3:'Who did you visit with?',q4:'Anything else? (optional)',
+ free:'e.g. I will come again!',gen:'Create review draft',rt:'Your draft (feel free to edit)',regen:'Try another version',post:'Copy & open Google review page',
+ rnote:'* Please check and edit the text to match your real experience, then post it yourself.',copied:'Copied! Paste it on the next screen and post.',pick:'Please choose at least one thing you liked',
+ points:{taste:'The food was delicious',staff:'The staff were friendly and helpful',atmos:'The atmosphere was cozy',price:'Prices were reasonable',clean:'The place was clean',speed:'Service was quick'},
+ who:{solo:'on my own',friends:'with friends',family:'with my family',date:'on a date',travel:'while traveling'},
+ whoS:{solo:'on my own',friends:'with friends',family:'with my family',date:'on a date',travel:'while traveling'},
+ intro:(s,w,i)=>`I visited ${s} ${w}. ${i?'I had '+i+'. ':''}`,
+ join:(a)=>a.join('. ')+'.',
+ close:['I would love to come back.','Highly recommended!','Definitely worth a visit.']},
+zh:{lead:'只需选几个选项，就能生成点评草稿。',q1:'您体验了什么？（可多选）',q2:'哪些方面很好？（可多选）',q3:'和谁一起来的？',q4:'补充一句（选填）',
+ free:'例如：下次还会再来！',gen:'生成点评草稿',rt:'点评草稿（可自由修改）',regen:'换一个版本',post:'复制并前往Google点评页面',
+ rnote:'※ 请根据您的真实体验确认并修改内容，然后自行发布。',copied:'已复制！请在下一页粘贴并发布。',pick:'请至少选择一项优点',
+ points:{taste:'味道非常好',staff:'店员服务很亲切',atmos:'店内氛围很舒适',price:'价格实惠',clean:'店内干净整洁',speed:'上菜很快'},
+ who:{solo:'一个人',friends:'和朋友',family:'和家人',date:'约会',travel:'旅行途中'},
+ whoS:{solo:'一个人',friends:'和朋友',family:'和家人',date:'约会时',travel:'旅行途中'},
+ intro:(s,w,i)=>`${w}去了${s}。${i?'点了'+i+'。':''}`,
+ join:(a)=>a.join('，')+'。',
+ close:['还想再来。','推荐给大家！','值得一去。']},
+ko:{lead:'몇 가지만 선택하면 후기 초안을 만들어 드려요.',q1:'무엇을 이용하셨나요? (복수 선택 가능)',q2:'좋았던 점은? (복수 선택 가능)',q3:'누구와 방문하셨나요?',q4:'한마디 (선택)',
+ free:'예: 또 올게요!',gen:'후기 초안 만들기',rt:'후기 초안 (자유롭게 수정하세요)',regen:'다른 문장으로',post:'복사하고 구글 리뷰 화면으로',
+ rnote:'※ 실제 경험에 맞게 내용을 확인·수정한 뒤 직접 게시해 주세요.',copied:'복사했어요! 다음 화면에서 붙여넣고 게시해 주세요.',pick:'좋았던 점을 하나 이상 선택해 주세요',
+ points:{taste:'맛이 정말 좋았어요',staff:'직원분이 친절했어요',atmos:'가게 분위기가 아늑했어요',price:'가격이 합리적이었어요',clean:'매장이 깨끗했어요',speed:'음식이 빨리 나왔어요'},
+ who:{solo:'혼자',friends:'친구와',family:'가족과',date:'데이트로',travel:'여행 중에'},
+ whoS:{solo:'혼자',friends:'친구와 함께',family:'가족과 함께',date:'데이트로',travel:'여행 중에'},
+ intro:(s,w,i)=>`${w} ${s}에 다녀왔어요. ${i?i+'을(를) 먹었어요. ':''}`,
+ join:(a)=>a.join('. ')+'.',
+ close:['또 방문하고 싶어요.','추천합니다!','꼭 한번 가보세요.']}
+};
+
+// ---- 店舗ごとの追加項目（URLパラメータ pts=dart,beginner,solo,group）----
+const X = {
+ ja:{dart:'ダーツが楽しめた',beginner:'ダーツ初心者にも優しく教えてくれた',solo:'一人でも入りやすかった',group:'団体でも楽しく利用できた'},
+ en:{dart:'Playing darts was great fun',beginner:'Friendly help for darts beginners',solo:'Easy to visit alone',group:'Great for groups too'},
+ zh:{dart:'飞镖玩得很开心',beginner:'飞镖新手也有人耐心指导',solo:'一个人来也很自在',group:'多人聚会也很合适'},
+ ko:{dart:'다트를 즐길 수 있었어요',beginner:'다트 초보도 친절하게 알려줬어요',solo:'혼자서도 편하게 갈 수 있었어요',group:'단체로도 즐겁게 이용했어요'}
+};
+const EXTRA = (P.get('pts')||'').split(',').filter(k=>X.ja[k]);
+function allPoints(t){
+  const o = {...t.points};
+  EXTRA.forEach(k=>{ o[k] = X[lang][k]; });
+  return o;
+}
+
+const $ = id => document.getElementById(id);
+let lang = (P.get('lang')) || ((navigator.language||'ja').slice(0,2));
+if(!T[lang]) lang = 'ja';
+$('lang').value = lang;
+const sel = {items:new Set(), points:new Set(), who:null};
+
+function makeChips(el, entries, multi, key){
+  el.innerHTML = '';
+  entries.forEach(([id,label])=>{
+    const b = document.createElement('button');
+    b.className = 'chip' + ((multi ? sel[key].has(id) : sel[key]===id) ? ' on':'');
+    b.textContent = label;
+    b.onclick = ()=>{
+      if(multi){ sel[key].has(id) ? sel[key].delete(id) : sel[key].add(id); }
+      else { sel[key] = (sel[key]===id ? null : id); }
+      render();
+    };
+    el.appendChild(b);
+  });
+}
+
+function render(){
+  const t = T[lang];
+  document.documentElement.lang = lang;
+  $('shopname').textContent = SHOP.name;
+  $('lead').textContent = t.lead;
+  $('q1t').textContent = t.q1; $('q2t').textContent = t.q2; $('q3t').textContent = t.q3; $('q4t').textContent = t.q4;
+  $('free').placeholder = t.free; $('gen').textContent = t.gen;
+  $('rt').textContent = t.rt; $('regen').textContent = t.regen; $('post').textContent = t.post; $('rnote').textContent = t.rnote;
+  makeChips($('q1'), SHOP.items.map(i=>[i,i]), true, 'items');
+  makeChips($('q2'), Object.entries(allPoints(t)), true, 'points');
+  makeChips($('q3'), Object.entries(t.who), false, 'who');
+}
+
+const shuffle = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+const pick = a => a[Math.floor(Math.random()*a.length)];
+
+// 文章生成（現在はテンプレート方式。将来ここをAI APIに差し替え可能）
+function generate(){
+  const t = T[lang];
+  if(sel.points.size===0){ alert(t.pick); return; }
+  const items = [...sel.items].join(lang==='ja'?'、':', ');
+  const w = sel.who ? t.whoS[sel.who] : (lang==='ja'?'':'');
+  const pts = shuffle([...sel.points]).map(k=>allPoints(t)[k]);
+  let text = t.intro(SHOP.name, w, items) + t.join(pts);
+  const free = $('free').value.trim();
+  if(free) text += (lang==='en'?' ':'') + free;
+  text += (lang==='en'||lang==='ko' ? ' ' : '') + pick(t.close);
+  $('out').value = text.replace(/\s+/g,' ').trim();
+  $('result').style.display = 'block';
+  $('result').scrollIntoView({behavior:'smooth'});
+}
+
+$('gen').onclick = generate;
+$('regen').onclick = generate;
+$('lang').onchange = e => { lang = e.target.value; render(); $('result').style.display='none'; };
+$('post').onclick = async () => {
+  const txt = $('out').value;
+  try { await navigator.clipboard.writeText(txt); } catch(e){ $('out').select(); document.execCommand('copy'); }
+  alert(T[lang].copied);
+  const url = SHOP.pid ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(SHOP.pid)}` : 'https://www.google.com/maps';
+  window.open(url, '_blank');
+};
+render();
+</script>
+</body>
+</html>
